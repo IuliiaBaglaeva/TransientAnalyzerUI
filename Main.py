@@ -170,7 +170,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                     data = pd.read_csv(filename)
                     data = data.to_numpy()
                 else:
-                    data = pd.read_excel(filename)
+                    data = pd.read_excel(filename,engine="openpyxl")
                     data = data.to_numpy()
                 if data.shape[1] > 2:
                     error_dialog = QErrorMessage()
@@ -200,7 +200,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                     self.SetPlotLabels()
                     data = data.to_numpy()
                 else:
-                    data = pd.read_excel(filename)
+                    data = pd.read_excel(filename,engine="openpyxl")
                     self.xlabel = data.columns[0]
                     self.ylabel = data.columns[1]
                     self.SetPlotLabels()
