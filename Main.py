@@ -255,8 +255,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             self.Analyzer = TransientAnalyzer.TransientAnalyzer(t,sig,
                                               window_size = self.WindowBox.value(),
                                               prominence = self.ProminenceBox.value(),
-                                              quantile1 = self.Q1Box.value(),
-                                              quantile2 = self.Q2Box.value(),
+                                              quantile1 = self.Q1Box.value() * 0.01,
+                                              quantile2 = self.Q2Box.value() * 0.01,
                                               t_stim = self.stimulus
                                               )
             self.DrawLines(self.Analyzer.t0s_est)

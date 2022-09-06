@@ -126,7 +126,7 @@
                  <enum>Qt::LeftToRight</enum>
                 </property>
                 <property name="text">
-                 <string>Quantile 1</string>
+                 <string>Percentile 1</string>
                 </property>
                 <property name="alignment">
                  <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
@@ -136,7 +136,7 @@
               <item>
                <widget class="QLabel" name="label_4">
                 <property name="text">
-                 <string>Quantile 2</string>
+                 <string>Percentile 2</string>
                 </property>
                 <property name="alignment">
                  <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
@@ -148,28 +148,22 @@
             <item>
              <layout class="QVBoxLayout" name="verticalLayout_4">
               <item>
-               <widget class="QDoubleSpinBox" name="Q1Box">
+               <widget class="QSpinBox" name="Q1Box">
                 <property name="maximum">
-                 <double>1.000000000000000</double>
-                </property>
-                <property name="singleStep">
-                 <double>0.100000000000000</double>
+                 <number>100</number>
                 </property>
                 <property name="value">
-                 <double>0.100000000000000</double>
+                 <number>10</number>
                 </property>
                </widget>
               </item>
               <item>
-               <widget class="QDoubleSpinBox" name="Q2Box">
+               <widget class="QSpinBox" name="Q2Box">
                 <property name="maximum">
-                 <double>1.000000000000000</double>
-                </property>
-                <property name="singleStep">
-                 <double>0.100000000000000</double>
+                 <number>100</number>
                 </property>
                 <property name="value">
-                 <double>0.200000000000000</double>
+                 <number>20</number>
                 </property>
                </widget>
               </item>
@@ -268,7 +262,7 @@
      <x>0</x>
      <y>0</y>
      <width>1324</width>
-     <height>22</height>
+     <height>27</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
