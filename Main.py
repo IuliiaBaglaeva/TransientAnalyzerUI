@@ -291,7 +291,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                 df = self.Analyzer.GetTransientsTable(self.xlabel,self.ylabel)
                 df.to_excel(writer,sheet_name="Transients")
                 try:
-                    writer.save()
+                    writer.close()
                 except Exception as e:
                     error_dialog = QErrorMessage()
                     error_dialog.showMessage(str(e))
