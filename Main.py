@@ -3,6 +3,8 @@
 
 import tensorflow_probability.python.experimental
 import keras
+
+
 from PlotWidgetwDblClick import PlotWidgetwDblClick
 from QFocusedDoubleSpinBox import QFocusedDoubleSpinBox
 
@@ -35,7 +37,7 @@ class Worker(QRunnable):
     def run(self):
         for i in range(self.n_transients):
             self.Analyzer._FitSingleTransient(i)
-            self.Signals.progress.emit((i + 1) * 100 / self.n_transients)
+            self.Signals.progress.emit(int((i + 1) * 100 / self.n_transients))
         self.Signals.finished.emit()
 
 class pandasModel(QAbstractTableModel):
@@ -67,6 +69,13 @@ class pandasModel(QAbstractTableModel):
                 return self._data.columns[col - 1]
         return None
     
+def isfloat(num):
+    try:
+        float(num)
+        return True
+    except ValueError:
+        return False
+
 class ApplicationWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super(ApplicationWindow, self).__init__()
@@ -79,6 +88,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.threadpool = QThreadPool()
         self.added_transients = []
         self.stimulus = None
+        self.ncol_data = None
         self.xlabel = 'time'
         self.ylabel = 'Signal'
         self.setEnd = False
@@ -106,7 +116,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.AboutWindow = QMessageBox()
         self.AboutWindow.setWindowTitle("About")
         self.AboutWindow.setText("<b>TransientAnalyzer - Gaussian process regression-based analysis of noisy transient signals.</b>")
-        self.AboutWindow.setInformativeText("Version 0.33. <br>"
+        self.AboutWindow.setInformativeText("Version 0.4. <br>"
                                 "Created by Iuliia Baglaeva (<a href='"'mailto:iuliia.baglaeva@savba.sk'"'>iuliia.baglaeva@savba.sk</a>), Bogdan Iaparov, Ivan Zahradník and Alexandra Zahradníková. <br>"
                                 "Biomedical Research Center of the Slovak Academy of Sciences. "
                                 "© 2022 <br>"
@@ -165,7 +175,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                 self.path, name = os.path.split(os.path.abspath(filename))
                 name, ext = os.path.splitext(filename)
                 if ext == ".txt":
-                    data = np.loadtxt(filename)
+                    data = np.loadtxt(filename,ndmin = 2)
                 elif ext == ".csv":
                     data = pd.read_csv(filename)
                     data = data.to_numpy()
@@ -184,6 +194,16 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                     self.stimulus = data[:,0]
                 self.Log.setText(f"Stimulation setup successful.")
 
+    def CheckLabels(self,data):
+        if not isfloat(data.columns[0].replace(',', '.')):
+            self.xlabel = data.columns[0]
+        else:
+            self.xlabel = "Time"
+        if not isfloat(data.columns[1].replace(',', '.')):
+            self.ylabel = data.columns[1]
+        else:
+            self.ylabel = "Signal"
+
     def OpenFile(self):
         if not self.computation_goes:
             filename = QFileDialog.getOpenFileName(self,"Open File",self.path,"Data files (*.txt *.csv *.xlsx)") [0]
@@ -195,14 +215,12 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                     data = np.loadtxt(filename)
                 elif ext == ".csv":
                     data = pd.read_csv(filename)
-                    self.xlabel = data.columns[0]
-                    self.ylabel = data.columns[1]
+                    self.CheckLabels(data)
                     self.SetPlotLabels()
                     data = data.to_numpy()
                 else:
                     data = pd.read_excel(filename,engine="openpyxl")
-                    self.xlabel = data.columns[0]
-                    self.ylabel = data.columns[1]
+                    self.CheckLabels(data)
                     self.SetPlotLabels()
                     data = data.to_numpy()
                 if data.shape[1] != 2:
@@ -212,6 +230,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                     self.Log.setText("File opening failed.")
                     return
                 self.Time = data[:,0]
+                self.GradientBox.setValue(2*np.min(np.diff(self.Time)))
                 self.Sig = data[:,1]
                 self.DetectButton.setEnabled(True)
                 self.StartButton.setEnabled(False)
@@ -223,6 +242,19 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                 self.Log.setText(f"{name}. Data loaded succesfully.")
                 self.setWindowTitle(f"TransientAnalyzer ({name})")
                 self.progressBar.setValue(0)
+                self.HideTable()
+
+    def HideTable(self):
+        if self.ncol_data is None:
+            return
+        for i in range(self.ncol_data):
+            self.ParsTable.hideColumn(i)
+
+    def ShowTable(self):
+        if self.ncol_data is None:
+            return
+        for i in range(self.ncol_data):
+            self.ParsTable.showColumn(i)
 
     def plot(self, t, ca):
         self.PlotWidget.clear()
@@ -249,18 +281,26 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         if not self.computation_goes:
             mint = self.StartTimeBox.value()
             maxt = self.EndTimeBox.value()
-            cond = (self.Time > mint) & (self.Time <= maxt)
+            cond = (self.Time >= mint) & (self.Time <= maxt)
             t = self.Time[cond]
             sig = self.Sig[cond]
-            self.Analyzer = TransientAnalyzer.TransientAnalyzer(t,sig,
+            stim = None
+            if self.stimulus is not None:
+                stim = self.stimulus[(self.stimulus >= mint) & (self.stimulus <= maxt)]
+            self.Analyzer = TransientAnalyzer(t,sig,
                                               window_size = self.WindowBox.value(),
                                               prominence = self.ProminenceBox.value(),
+                                              window_size2 = self.Window2Box.value(),
+                                              shift = self.ShiftBox.value(),
+                                              beta = self.BetaBox.value(),
+                                              start_gradient = self.GradientBox.value(),
                                               quantile1 = self.Q1Box.value() * 0.01,
                                               quantile2 = self.Q2Box.value() * 0.01,
-                                              t_stim = self.stimulus
+                                              t_stim = stim
                                               )
             self.DrawLines(self.Analyzer.t0s_est)
             self.StartButton.setEnabled(True)
+            self.HideTable()
             self.Log.setText(f"Detection of transients is completed. A total of {len(self.Analyzer.t0s_est)} transients.")
 
     def ShowProgress(self,value):
@@ -269,6 +309,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     def ComputationisFinished(self):
         df = self.Analyzer.GetParametersTable(self.xlabel,self.ylabel)
         parameters = pandasModel(df)
+        self.ncol_data = parameters.columnCount()
         self.ParsTable.setModel(parameters)
         self.ParsTable.setMinimumWidth(300)
         self._ClearApproximatedTransients()
@@ -279,23 +320,31 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             self.added_transients.append(l)
         self.DrawLines(self.Analyzer.t0s)
         self.computation_goes = False
+        self.ShowTable()
         self.Log.setText("Parameters estimation is completed.")
 
     def SaveData(self):
         if not self.computation_goes:
-            save_filename = QFileDialog.getSaveFileName(self,"Save File",self.path,"Excel file (*.xlsx)") [0]
+            save_filename, save_filename_ext = QFileDialog.getSaveFileName(self,"Save File",self.path,"Comma separated values (*.csv);;Excel file (*.xlsx)")
             if save_filename != "":
-                writer = pd.ExcelWriter(save_filename, engine='xlsxwriter')
-                df = self.Analyzer.GetParametersTable(self.xlabel,self.ylabel)
-                df.to_excel(writer,sheet_name="Parameters")
-                df = self.Analyzer.GetTransientsTable(self.xlabel,self.ylabel)
-                df.to_excel(writer,sheet_name="Transients")
-                try:
-                    writer.close()
-                except Exception as e:
-                    error_dialog = QErrorMessage()
-                    error_dialog.showMessage(str(e))
-                    error_dialog.exec_()
+                if save_filename_ext == "Comma separated values (*.csv)":
+                    save_filename, save_filename_ext = os.path.splitext(save_filename)
+                    df = self.Analyzer.GetParametersTable(self.xlabel,self.ylabel)
+                    df.to_csv(save_filename + "_parameters.csv")
+                    df = self.Analyzer.GetTransientsTable(self.xlabel,self.ylabel)
+                    df.to_csv(save_filename + "_transients.csv")
+                else:
+                    writer = pd.ExcelWriter(save_filename, engine='xlsxwriter')
+                    df = self.Analyzer.GetParametersTable(self.xlabel,self.ylabel)
+                    df.to_excel(writer,sheet_name="Parameters")
+                    df = self.Analyzer.GetTransientsTable(self.xlabel,self.ylabel)
+                    df.to_excel(writer,sheet_name="Transients")
+                    try:
+                        writer.close()
+                    except Exception as e:
+                        error_dialog = QErrorMessage()
+                        error_dialog.showMessage(str(e))
+                        error_dialog.exec_()
 
 
     def WorkWithTransients(self):
