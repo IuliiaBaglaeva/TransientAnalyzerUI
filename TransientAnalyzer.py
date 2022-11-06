@@ -10,6 +10,8 @@ import gpflow
 import re
 from LinearGibbs import LinearGibbs
 from EMOneDimGaussian import EMOneDimGaussian
+from pybaselines import Baseline
+
 
 
 class TransientAnalyzer:
@@ -100,8 +102,7 @@ and a total N-dimensional covariance matrix K with the elements:
         else:
             self.is_fall = False
         self._SetData(time, Sig, t_stim,detrend)
-
-        if start_gradient <= 0:
+        if start_gradient < 0:
             self._start_gradient = 2 * np.min(np.diff(self.Time))
         else:
             self._start_gradient = start_gradient
@@ -127,6 +128,10 @@ and a total N-dimensional covariance matrix K with the elements:
         same_length = (len(time) == len(Sig))
         if time is None or Sig is None or not same_length:
             raise Exception("One of the arrays is not defined or they do not have the same length")
+        if detrend:
+            baseline_fitter = Baseline(x_data=time)
+            imodpoly = baseline_fitter.imodpoly(Sig, poly_order=4)[0]
+            Sig = Sig - imodpoly + imodpoly[0]
         self.Time = np.copy(time)
         self.Sig = np.copy(Sig)
         self._FindEstAllT0(t_stim)

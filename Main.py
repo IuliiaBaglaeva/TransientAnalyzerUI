@@ -18,6 +18,8 @@ import numpy as np
 from TransientAnalyzer import TransientAnalyzer
 import pyqtgraph as pg
 import pandas as pd
+from copy import deepcopy
+
 
 
 class WorkerSignals(QObject):
@@ -129,6 +131,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                                 "<li> NumPy </li>"
                                 "<li> SciPy </li>"
                                 "<li> Pandas </li>"
+                                "<li> Pybaselines </li>"
                                 "</ul>")
         self.AboutWindow.setStyleSheet("QLabel{min-width: 1000px; font-size: 24px;}")
         spinboxes = self.findChildren(QDoubleSpinBox)
@@ -291,6 +294,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                                               window_size = self.WindowBox.value(),
                                               prominence = self.ProminenceBox.value(),
                                               window_size2 = self.Window2Box.value(),
+                                              detrend = self.DetrendBox.isChecked(),
                                               shift = self.ShiftBox.value(),
                                               beta = self.BetaBox.value(),
                                               start_gradient = self.GradientBox.value(),
@@ -298,6 +302,12 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                                               quantile2 = self.Q2Box.value() * 0.01,
                                               t_stim = stim
                                               )
+            if self.DetrendBox.isChecked():
+                sig = deepcopy(self.Sig)
+                sig[cond] = self.Analyzer.Sig
+                self.plot(self.Time, sig)
+            else:
+                self.plot(self.Time,self.Sig)
             self.DrawLines(self.Analyzer.t0s_est)
             self.StartButton.setEnabled(True)
             self.HideTable()
