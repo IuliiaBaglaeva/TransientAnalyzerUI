@@ -207,6 +207,16 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         else:
             self.ylabel = "Signal"
 
+    def ResetParameters(self):
+        self.DetrendBox.setChecked(False)
+        self.WindowBox.setValue(20)
+        self.Window2Box.setValue(0)
+        self.Q1Box.setValue(10)
+        self.Q2Box.setValue(20)
+        self.ShiftBox.setValue(0)
+        self.BetaBox.setValue(0.25)
+        self.ProminenceBox.setValue(1.0)
+
     def OpenFile(self):
         if not self.computation_goes:
             filename = QFileDialog.getOpenFileName(self,"Open File",self.path,"Data files (*.txt *.csv *.xlsx)") [0]
@@ -246,6 +256,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                 self.setWindowTitle(f"TransientAnalyzer ({name})")
                 self.progressBar.setValue(0)
                 self.HideTable()
+                self.ResetParameters()
 
     def HideTable(self):
         if self.ncol_data is None:
@@ -259,13 +270,14 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         for i in range(self.ncol_data):
             self.ParsTable.showColumn(i)
 
-    def plot(self, t, ca):
+    def plot(self, t, ca,change_range = True):
         self.PlotWidget.clear()
         pen = pg.mkPen(color = (105,105,105), width = 2)
         self.PlotWidget.plot(t, ca, pen=pen)
         self.setMouseTracking(True)
         self.PlotWidget.scene().sigMouseMoved.connect(self.MouseMovedonPlot)
-        self.PlotWidget.autoRange()
+        if change_range:
+            self.PlotWidget.autoRange()
 
     def _ClearApproximatedTransients(self):
         for l in self.added_transients:
@@ -305,9 +317,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             if self.DetrendBox.isChecked():
                 sig = deepcopy(self.Sig)
                 sig[cond] = self.Analyzer.Sig
-                self.plot(self.Time, sig)
+                self.plot(self.Time, sig,False)
             else:
-                self.plot(self.Time,self.Sig)
+                self.plot(self.Time,self.Sig,False)
             self.DrawLines(self.Analyzer.t0s_est)
             self.StartButton.setEnabled(True)
             self.HideTable()
