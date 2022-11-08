@@ -49,7 +49,7 @@ and a total N-dimensional covariance matrix K with the elements:
     def __init__(self, time, Sig, start_gradient = 0, kernel="Gibbs",
                  window_size=20, window_size2 = 0, prominence=1, t_stim=None,
                  detrend = False, beta = 0.25, shift = 0, 
-                 quantile1=0.1, quantile2=0.2):
+                 quantile1=0.1, quantile2=0.2, is_fall = None):
         """
         
         :param time: array of the values of the time during contraction
@@ -78,6 +78,8 @@ and a total N-dimensional covariance matrix K with the elements:
         :type quantile1: float
         :param quantile2: the second quantile for parameters of transients, will be used for the detection of rise,decay times and durations as the ones between quantile1 and 1 - quantile1 percents of the corresponding transient phase,  defaults to 0.2
         :type quantile2: float
+        :param is_fall: defines whether the transients are falling or not. If the parameter is None, it will be defined automatically by the gaussian mixture model. Defaults to None
+        :type is_fall: bool
         """
         self.transients = []
         self.parameters = []
@@ -94,13 +96,16 @@ and a total N-dimensional covariance matrix K with the elements:
         self._window_size2 = window_size2
         self._beta = beta
         self._shift = shift
-        model = EMOneDimGaussian()
-        model.fit(Sig)
-        idx_max = np.argmax(model._w[0])
-        if model._mu[0][idx_max] > model._mu[0][(idx_max + 1) % 2]:
-            self.is_fall = True
+        if is_fall is None:
+            model = EMOneDimGaussian()
+            model.fit(Sig)
+            idx_max = np.argmax(model._w[0])
+            if model._mu[0][idx_max] > model._mu[0][(idx_max + 1) % 2]:
+                self.is_fall = True
+            else:
+                self.is_fall = False
         else:
-            self.is_fall = False
+            self.is_fall = is_fall
         self._SetData(time, Sig, t_stim,detrend)
         if start_gradient < 0:
             self._start_gradient = 2 * np.min(np.diff(self.Time))
