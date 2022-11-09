@@ -347,7 +347,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
     def SaveData(self):
         if not self.computation_goes:
-            save_filename, save_filename_ext = QFileDialog.getSaveFileName(self,"Save File",self.path,"Comma separated values (*.csv);;Excel file (*.xlsx)")
+            save_filename, save_filename_ext = QFileDialog.getSaveFileName(self,"Save File",self.path,"Excel file (*.xlsx);;Comma separated values (*.csv)")
             if save_filename != "":
                 if save_filename_ext == "Comma separated values (*.csv)":
                     save_filename, save_filename_ext = os.path.splitext(save_filename)
