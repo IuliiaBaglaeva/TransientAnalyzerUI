@@ -3,6 +3,7 @@
 import numpy as np
 import pandas as pd
 from scipy.signal import windows, find_peaks
+from scipy.ndimage import convolve1d
 from scipy.optimize import minimize, bisect
 from copy import deepcopy
 from scipy.interpolate import CubicSpline, interp1d
@@ -240,11 +241,11 @@ and a total N-dimensional covariance matrix K with the elements:
             else:
                 win2 = windows.boxcar(self._window_size2)
                 init_shift = int((self._window_size2 - 1)//2)
-            sig = np.convolve(self.Sig, win2, mode='same') / np.sum(win2)
+            sig = convolve1d(self.Sig, win2, mode='mirror') / np.sum(win2)
             if self.is_fall:
                 sig *= -1
             win = windows.boxcar(self._window_size)
-            filtered = np.convolve(sig, win, mode='same') / np.sum(win)
+            filtered = convolve1d(sig, win, mode='mirror') / np.sum(win)
             res = filtered - sig
             self.borders, _ = find_peaks(res, prominence=self._prominence * np.max(res), height=0)
             self.borders = self.borders.astype("int64") + init_shift - int(self._shift)
@@ -304,23 +305,20 @@ and a total N-dimensional covariance matrix K with the elements:
         xprevm1 = x
         f = func(x, *args)
         dydx = 0
-        if self.is_fall:
-            mult = -1
-        else:
-            mult = 1
-
-        eps = 1e-5
+        eps = 1e-6
         n_iter = 0
-        while f > 0:
-            fl = mult * func(x - dx, *args)
-            fr = mult * func(x + dx, *args)
+        fl = func(x - dx, *args)
+        fr = func(x + dx, *args)
+        dydx = (fr - fl) / (2 * dx)
+        alpha *= 20/dydx
+        while n_iter <= 10:
+            fl = func(x - dx, *args)
+            fr = func(x + dx, *args)
             dydx = (fr - fl) / (2 * dx)
             x = xprev - alpha * dydx + beta * (xprev - xprevm1)
-            f = mult * func(x, *args)
+            f = func(x, *args)
             if np.abs(x - xprev) < eps:
                 n_iter += 1
-                if n_iter > 10:
-                    break
             else:
                 n_iter = 0
             xprevm1 = xprev
@@ -391,87 +389,45 @@ and a total N-dimensional covariance matrix K with the elements:
         else:
             self.parameters[idx].append(self.t0s[idx]-self.t0s_est[idx])
         # get rise time, FDHM, decay time
-        try:
-            q1_rise = bisect(self._FindTimeFraction, t0_sig, TTP_sig,
-                             args=(self.quantile1, -Peak_sig.fun, base_sig, self.transients[idx]))
-        except:
-            q1_rise = None
-        try:
-            q2_rise = bisect(self._FindTimeFraction, t0_sig, TTP_sig,
-                             args=(self.quantile2, -Peak_sig.fun, base_sig, self.transients[idx]))
-        except:
-            q2_rise = None
-        try:
-            half_rise = bisect(self._FindTimeFraction, t0_sig, TTP_sig,
-                               args=(0.5, -Peak_sig.fun, base_sig, self.transients[idx]))
-        except:
-            half_rise = None
-        try:
-            q1m_rise = bisect(self._FindTimeFraction, t0_sig, TTP_sig,
-                              args=(1 - self.quantile1, -Peak_sig.fun, base_sig, self.transients[idx]))
-        except:
-            q1m_rise = None
-        try:
-            q2m_rise = bisect(self._FindTimeFraction, t0_sig, TTP_sig,
-                              args=(1 - self.quantile2, -Peak_sig.fun, base_sig, self.transients[idx]))
-        except:
-            q2m_rise = None
+        rise_times = np.zeros(5)
+        decay_times = np.zeros_like(rise_times)
+        quantiles = np.array([self.quantile1,self.quantile2,0.5,1 - self.quantile2, 1 - self.quantile1])
+        for i in range(5): #durations of rise phase
+            try:
+                rise_times[i] = bisect(self._FindTimeFraction, t0_sig, TTP_sig,
+                                args=(quantiles[i], -Peak_sig.fun, base_sig, self.transients[idx]))
+                self.parameters[idx].append(rise_times[i] - t0_sig)        
+            except:
+                rise_times[i] = None
+                self.parameters[idx].append(np.nan)
+        self.parameters[idx].append(TTP_sig)
         if self.is_fall:
             maxy_estidx2 = np.argmax(Yfit[maxy_estidx:])
         else:
             maxy_estidx2 = np.argmin(Yfit[maxy_estidx:])
         min_f_after_ttp = minimize(self._MinFunc, x0=[Xfit[maxy_estidx + maxy_estidx2]], bounds=((TTP_sig,t[-1]),), args=(self.transients[idx], bool(np.abs(False - self.is_fall))))
-        try:
-            q1_decay = bisect(self._FindTimeFraction, TTP_sig, min_f_after_ttp.x[0], args=(self.quantile1, -Peak_sig.fun, base_sig, self.transients[idx]))
-        except:
-            q1_decay = None
-        try:
-            q2_decay = bisect(self._FindTimeFraction, TTP_sig, min_f_after_ttp.x[0], args=(self.quantile2, -Peak_sig.fun, base_sig, self.transients[idx]))
-        except:
-            q2_decay = None
-        try:
-            half_decay = bisect(self._FindTimeFraction, TTP_sig, min_f_after_ttp.x[0], args=(0.5, -Peak_sig.fun, base_sig, self.transients[idx]))
-        except:
-            half_decay = None
-        try:
-            q1m_decay = bisect(self._FindTimeFraction, TTP_sig, min_f_after_ttp.x[0], args=(1 - self.quantile1, -Peak_sig.fun, base_sig, self.transients[idx]))
-        except:
-            q1m_decay = None
-        try:
-            q2m_decay = bisect(self._FindTimeFraction, TTP_sig, min_f_after_ttp.x[0], args=(1 - self.quantile2, -Peak_sig.fun, base_sig, self.transients[idx]))
-        except:
-            q2m_decay = None
-        if q1m_rise is not None and q1_rise is not None:
-            self.parameters[idx].append(q1m_rise - q1_rise)  # rise times
+        for i in range(5):  #durations of decay phase
+            try:
+                decay_times[i] = bisect(self._FindTimeFraction, TTP_sig, min_f_after_ttp.x[0], 
+                args=(1 - quantiles[i], -Peak_sig.fun, base_sig, self.transients[idx]))
+                self.parameters[idx].append(decay_times[i] - t0_sig)
+            except:
+                decay_times[i] = None
+                self.parameters[idx].append(np.nan)
+        for i in reversed(range(2)):
+            if rise_times[i] is not None and rise_times[4-i] is not None:
+                self.parameters[idx].append(rise_times[4-i] - rise_times[i])  # rise times
+            else:
+                self.parameters[idx].append(np.nan)
+        if rise_times[2] is not None and decay_times[2] is not None:
+            self.parameters[idx].append(decay_times[2] - rise_times[2])
         else:
             self.parameters[idx].append(np.nan)
-        if q1m_rise is not None and q1_rise is not None:
-            self.parameters[idx].append(q2m_rise - q2_rise)
-        else:
-            self.parameters[idx].append(np.nan)
-        self.parameters[idx].append(TTP_sig)
-        if half_rise is not None and half_decay is not None:
-            self.parameters[idx].append(half_decay - half_rise)
-        else:
-            self.parameters[idx].append(np.nan)
-        if q1_decay is not None and q1m_decay is not None:
-            self.parameters[idx].append(q1_decay - q1m_decay)  # decay times
-        else:
-            self.parameters[idx].append(np.nan)
-        if q2_decay is not None and q2m_decay is not None:
-            self.parameters[idx].append(q2_decay - q2m_decay)
-        else:
-            self.parameters[idx].append(np.nan)
-        if q1_decay is not None:
-            self.parameters[idx].append(q1_decay - t0_sig)  # durations
-        else:
-            self.parameters[idx].append(np.nan)
-        if q2_decay is not None:
-            self.parameters[idx].append(q2_decay - t0_sig)
-        else:
-            self.parameters[idx].append(np.nan)
-        #self.parameters[idx].append(q2m_decay - t0_sig)
-        #self.parameters[idx].append(q1m_decay - t0_sig)
+        for i in reversed(range(2)):
+            if decay_times[i] is not None and decay_times[4-i] is not None:
+                self.parameters[idx].append(decay_times[4-i] - decay_times[i])  # decay times
+            else:
+                self.parameters[idx].append(np.nan)
         if idx is not len(self.borders) - 2:
             self.baselines[idx + 1] = float(self.transients[idx](self.t0s_est[idx + 1] - self.t0s[idx]))
 
@@ -536,13 +492,13 @@ and a total N-dimensional covariance matrix K with the elements:
             sig_exp_out = np.hstack((sig_exp_out, sig))
             sig_model_out = np.hstack((sig_model_out, sig_model))
         sig_spline = interp1d(t_model_out, sig_model_out,fill_value = "extrapolate")
-        sig_model_out = sig_spline(t_exp_out[t_exp_out > t_model_out[0]])
+        sig_model_out = sig_spline(t_exp_out[t_exp_out >= t_model_out[0]])
         columns = [x_label, y_label, f"Approximated {y_label}"]
         output = np.zeros((t_exp_out.shape[0], 3))
         output.fill(np.nan)
         output[:, 0] = t_exp_out
         output[:, 1] = sig_exp_out
-        output[t_exp_out > t_model_out[0], 2] = sig_model_out
+        output[t_exp_out >= t_model_out[0], 2] = sig_model_out
         df_out = pd.DataFrame(output, columns=columns[:3])
         return df_out
 
@@ -573,9 +529,18 @@ and a total N-dimensional covariance matrix K with the elements:
             y_out = y_out[0]
         else:
             y_out = ""
-        columns = [f"Baseline{y_out}",  f"Amplitude{y_out}", f"t0{x_out}", f"delta t0{x_out}", f"Delay{x_out}", 
-                f"t_{q1}%-{100 - q1}%{x_out}", f"t_{q2}%-{100 - q2}%{x_out}", f"TTP{x_out}", f"FDHM{x_out}",
-                f"t_{100-q1}%-{q1}%{x_out}", f"t_{100-q2}%-{q2}%{x_out}",f"d_{100 - q1}%{x_out}", f"d_{100 - q2}%{x_out}"]
+        quantiles = np.array([q1,q2,50,100 - q2, 100 - q1])
+        list_r = [f"r_{q}%{x_out}" for q in quantiles]
+        list_d = [f"d_{q}%{x_out}" for q in quantiles]
+        list_tr = [f"t_{100-q}%-{q}%{x_out}" for q in quantiles[3:]]
+        list_td = [f"t_{q}%-{100-q}%{x_out}" for q in quantiles[3:]]
+        columns = [f"Baseline{y_out}",  f"Amplitude{y_out}", f"t0{x_out}", f"delta t0{x_out}", f"Delay{x_out}"]
+        columns.extend(list_r)
+        columns.append(f"TTP{x_out}") 
+        columns.extend(list_d)
+        columns.extend(list_tr)
+        columns.append(f"FDHM{x_out}")
+        columns.extend(list_td)
         pars = np.array(self.parameters)
         df = pd.DataFrame(pars, columns=columns)
         return df
