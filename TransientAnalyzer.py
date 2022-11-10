@@ -252,17 +252,19 @@ and a total N-dimensional covariance matrix K with the elements:
             self.t0s_est = self.Time[self.borders]
         else:
             self.t0s_est = deepcopy(t_stim)
-            self.borders = self.t0s_est / self.dt
-            self.borders = self.borders.astype('int64')
+            self.borders = []
+            for t0 in self.t0s_est:
+                self.borders.append(np.argmax(t0 >= self.Time))
+            self.borders = np.array(self.borders, dtype = 'int64')
         self.t0s = [-1] * len(self.borders)
         self.baselines = [-1] * len(self.borders)
         self.transients = [-1] * len(self.borders)
         self.parameters = [-1] * len(self.borders)
-        self.borders = np.append(self.borders, (self.Time[-1] - self.Time[0]) / self.dt).astype("uint64")
+        self.borders = np.append(self.borders, self.Time.shape[0] - 1).astype("uint64")
         n = len(self.borders) - 1
         for i in range(n):
             if i == 0:
-                dn = int((self.t0s_est[0] - self.Time[0]) / self.dt)
+                dn = self.borders[0]
                 n0 = max(dn - self._n_baseline, 0)
                 self.baselines[i] = np.mean(self.Sig[n0:dn])
 
