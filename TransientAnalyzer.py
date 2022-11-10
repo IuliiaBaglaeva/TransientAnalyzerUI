@@ -249,7 +249,7 @@ and a total N-dimensional covariance matrix K with the elements:
             res = filtered - sig
             self.borders, _ = find_peaks(res, prominence=self._prominence * np.max(res), height=0)
             self.borders = self.borders.astype("int64") + init_shift - int(self._shift)
-            self.t0s_est = self.borders * self.dt + self.Time[0]
+            self.t0s_est = self.Time[self.borders] + self.Time[0]
         else:
             self.t0s_est = deepcopy(t_stim)
             self.borders = self.t0s_est / self.dt
@@ -336,6 +336,7 @@ and a total N-dimensional covariance matrix K with the elements:
         t, sig = self.GetExpTransient(idx, False)
         ti = t[0]
         t -= t[0]
+        print(t[0],t[-1])
         t_start = - self._start_gradient
         t_end = self._start_gradient
         Yfit = sig[::]
@@ -344,10 +345,10 @@ and a total N-dimensional covariance matrix K with the elements:
         else:
             Yfit[0] = self.baselines[idx]
         Xfit = t
-        # remove the points after peak
         gpr = gpflow.models.GPR((Xfit.reshape(-1, 1), Yfit.reshape(-1, 1)), kernel=self._kernel)
         opt = gpflow.optimizers.Scipy()
         opt.minimize(gpr.training_loss, variables=gpr.trainable_variables)
+        print(self.is_fall,np.min(Yfit),np.max(Yfit))
         if self.is_fall:
             maxy_estidx = np.argmin(Yfit)
         else:
@@ -363,6 +364,7 @@ and a total N-dimensional covariance matrix K with the elements:
         if self.is_fall:
             Peak_sig.fun *= - 1
         # find t0
+        print(t_start,t_end)
         x_findt0 = np.linspace(t_start, min(Peak_sig.x[0],t_end), 100)
         if idx > 0:
             baseline_spline = CubicSpline(x_findt0,self.transients[idx-1](x_findt0 + ti - self.t0s_est[idx-1]))
@@ -405,6 +407,7 @@ and a total N-dimensional covariance matrix K with the elements:
             maxy_estidx2 = np.argmax(Yfit[maxy_estidx:])
         else:
             maxy_estidx2 = np.argmin(Yfit[maxy_estidx:])
+        print(TTP_sig, t[-1])
         min_f_after_ttp = minimize(self._MinFunc, x0=[Xfit[maxy_estidx + maxy_estidx2]], bounds=((TTP_sig,t[-1]),), args=(self.transients[idx], bool(np.abs(False - self.is_fall))))
         for i in range(5):  #durations of decay phase
             try:
