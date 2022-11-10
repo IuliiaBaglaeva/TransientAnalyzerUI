@@ -254,7 +254,7 @@ and a total N-dimensional covariance matrix K with the elements:
             self.t0s_est = deepcopy(t_stim)
             self.borders = []
             for t0 in self.t0s_est:
-                self.borders.append(np.argmax(t0 >= self.Time))
+                self.borders.append(np.argmax(t0 <= self.Time))
             self.borders = np.array(self.borders, dtype = 'int64')
         self.t0s = [-1] * len(self.borders)
         self.baselines = [-1] * len(self.borders)
@@ -265,7 +265,7 @@ and a total N-dimensional covariance matrix K with the elements:
         for i in range(n):
             if i == 0:
                 dn = self.borders[0]
-                n0 = max(dn - self._n_baseline, 0)
+                n0 = int(max(dn - self._n_baseline, 0))
                 self.baselines[i] = np.mean(self.Sig[n0:dn])
 
     def _FindT0(self, t0, spline, mean):
