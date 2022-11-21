@@ -1,9 +1,10 @@
 import numpy as np
 
 class EMOneDimGaussian:
-        """EMOneDimGaussian is the implementation of EM algorithm for parameters estimation of 1D Gaussian Mixture model.
+    """
+        EMOneDimGaussian is the implementation of EM algorithm for parameters estimation of 1D Gaussian Mixture model.
         See Sridharan, R. 2014. Gaussian mixture models and the EM algorithm for more details.
-     """
+    """
 
     def __init__(self,n_gaussians = 2):
         """
