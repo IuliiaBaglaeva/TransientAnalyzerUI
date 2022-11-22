@@ -118,7 +118,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.AboutWindow = QMessageBox()
         self.AboutWindow.setWindowTitle("About")
         self.AboutWindow.setText("<b>TransientAnalyzer - Gaussian process regression-based analysis of noisy transient signals.</b>")
-        self.AboutWindow.setInformativeText("Version 0.4. <br>"
+        self.AboutWindow.setInformativeText("Version 1.0. <br>"
                                 "Created by Iuliia Baglaeva (<a href='"'mailto:iuliia.baglaeva@savba.sk'"'>iuliia.baglaeva@savba.sk</a>), Bogdan Iaparov, Ivan Zahradník and Alexandra Zahradníková. <br>"
                                 "Biomedical Research Center of the Slovak Academy of Sciences. "
                                 "© 2022 <br>"
@@ -302,7 +302,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             stim = None
             if self.stimulus is not None:
                 stim = self.stimulus[(self.stimulus >= mint) & (self.stimulus <= maxt)]
-            self.Analyzer = TransientAnalyzer(t,sig,
+            self.Analyzer = TransientAnalyzer.TransientAnalyzer(t,sig,
                                               window_size = self.WindowBox.value(),
                                               prominence = self.ProminenceBox.value(),
                                               window_size2 = self.Window2Box.value(),
