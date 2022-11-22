@@ -4,7 +4,6 @@
 import tensorflow_probability.python.experimental
 import keras
 
-
 from PlotWidgetwDblClick import PlotWidgetwDblClick
 from QFocusedDoubleSpinBox import QFocusedDoubleSpinBox
 
@@ -19,8 +18,6 @@ from TransientAnalyzer import TransientAnalyzer
 import pyqtgraph as pg
 import pandas as pd
 from copy import deepcopy
-
-
 
 class WorkerSignals(QObject):
     progress = pyqtSignal(int)
@@ -111,7 +108,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.DetectButton.clicked.connect(self.DetectSignals)
         self.StartButton.clicked.connect(self.WorkWithTransients)
         #Menu bar
-        self.actionExit.triggered.connect(qApp.quit)
+        self.actionExit.triggered.connect(self.closeEvent)
         self.actionOpen_File.triggered.connect(self.OpenFile)
         self.actionSave_Data.triggered.connect(self.SaveData)
         self.actionAdd_Stimulation_File.triggered.connect(self.SetStimulations)
@@ -120,7 +117,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.AboutWindow.setWindowTitle("About")
         self.AboutWindow.setText("<b>TransientAnalyzer - Gaussian process regression-based analysis of noisy transient signals.</b>")
         self.AboutWindow.setInformativeText("Version 1.1. <br>"
-                                "Created by Iuliia Baglaeva (<a href='"'mailto:iuliia.baglaeva@savba.sk'"'>iuliia.baglaeva@savba.sk</a>), Bogdan Iaparov, Ivan Zahradník and Alexandra Zahradníková. <br>"
+                                "Created by Iuliia&nbsp;Baglaeva (<a href='"'mailto:iuliia.baglaeva@savba.sk'"'>iuliia.baglaeva@savba.sk</a>), Bogdan&nbsp;Iaparov, Ivan&nbsp;Zahradník and Alexandra&nbsp;Zahradníková. <br>"
                                 "Biomedical Research Center of the Slovak Academy of Sciences. "
                                 "© 2022 <br>"
                                 "This software is licensed under the GNU General Public License 3.0. <br>"
@@ -134,7 +131,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                                 "<li> Pandas </li>"
                                 "<li> Pybaselines </li>"
                                 "</ul>")
-        self.AboutWindow.setStyleSheet("QLabel{min-width: 1000px; font-size: 24px;}")
+        self.AboutWindow.setStyleSheet("QLabel{min-width: 900px; font-size: 24px;}")
         spinboxes = self.findChildren(QDoubleSpinBox)
         spinboxes.extend(self.findChildren(QSpinBox))
         for s in spinboxes:
@@ -142,6 +139,28 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.StartTimeBox.focused.connect(self.SetTimeToChange)
         self.EndTimeBox.focused.connect(self.SetTimeToChange)
         self.computation_goes = False
+        self.data_issaved = True
+
+    def closeEvent(self,event):
+        if not (not self.computation_goes and self.data_issaved):
+            if self.computation_goes:
+                extra_msg = "There is an ongoing computation.".replace(" ", "&nbsp;") + "<br>"
+            else:
+                extra_msg = "There are unsaved results.".replace(" ", "&nbsp;") + "<br>"
+            exit_msg = "Are you sure you want to exit?"
+            msg_box = QMessageBox()
+            msg_box.setWindowTitle("Exit warning")
+            msg_box.setText(f"{extra_msg}{exit_msg}")
+            msg_box.setTextFormat(QtCore.Qt.RichText)
+            msg_box.setIcon(QMessageBox.Question)
+            msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.Cancel)
+            resp = msg_box.exec()
+            if resp == QMessageBox.Yes:
+                self.close()
+            else:
+                event.ignore()
+        else:
+            self.close()
 
     def ShowAboutWindow(self):
         self.AboutWindow.exec()
@@ -259,6 +278,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                 self.progressBar.setValue(0)
                 self.HideTable()
                 self.ResetParameters()
+                self.data_issaved = False
 
     def HideTable(self):
         if self.ncol_data is None:
@@ -369,17 +389,19 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                         error_dialog = QErrorMessage()
                         error_dialog.showMessage(str(e))
                         error_dialog.exec_()
+                self.data_issaved = True
 
 
     def WorkWithTransients(self):
-        self.progressBar.setValue(0)
-        self.Log.setText("Parameters estimation is in progress.")
-        worker = Worker(self.Analyzer)  # Any other args, kwargs are passed to the run function
-        worker.Signals.progress.connect(self.ShowProgress)
-        worker.Signals.finished.connect(self.ComputationisFinished)
-        self.threadpool.start(worker)
-        self.computation_goes = True
-        self._ClearApproximatedTransients()
+        if not self.computation_goes:
+            self.progressBar.setValue(0)
+            self.Log.setText("Parameters estimation is in progress.")
+            worker = Worker(self.Analyzer)  # Any other args, kwargs are passed to the run function
+            worker.Signals.progress.connect(self.ShowProgress)
+            worker.Signals.finished.connect(self.ComputationisFinished)
+            self.threadpool.start(worker)
+            self.computation_goes = True
+            self._ClearApproximatedTransients()
 
 def main():
     app = QtWidgets.QApplication(sys.argv)
