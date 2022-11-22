@@ -95,6 +95,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.ylabel = 'Signal'
         self.setEnd = False
         self.cur_x_mouse = None
+        self.fname = None
         self.PlotWidget.doubleclicked.connect(self.SetTime)
         #parameters of plot
         self.PlotWidget.setBackground('w')
@@ -118,7 +119,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.AboutWindow = QMessageBox()
         self.AboutWindow.setWindowTitle("About")
         self.AboutWindow.setText("<b>TransientAnalyzer - Gaussian process regression-based analysis of noisy transient signals.</b>")
-        self.AboutWindow.setInformativeText("Version 1.0. <br>"
+        self.AboutWindow.setInformativeText("Version 1.1. <br>"
                                 "Created by Iuliia Baglaeva (<a href='"'mailto:iuliia.baglaeva@savba.sk'"'>iuliia.baglaeva@savba.sk</a>), Bogdan Iaparov, Ivan Zahradník and Alexandra Zahradníková. <br>"
                                 "Biomedical Research Center of the Slovak Academy of Sciences. "
                                 "© 2022 <br>"
@@ -252,6 +253,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                 self.EndTimeBox.setValue(self.Time[-1])
                 self.plot(self.Time, self.Sig)
                 self.stimulus = None
+                _, self.fname = os.path.split(name)
                 self.Log.setText(f"{name}. Data loaded succesfully.")
                 self.setWindowTitle(f"TransientAnalyzer ({name})")
                 self.progressBar.setValue(0)
@@ -347,7 +349,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
     def SaveData(self):
         if not self.computation_goes:
-            save_filename, save_filename_ext = QFileDialog.getSaveFileName(self,"Save File",self.path,"Excel file (*.xlsx);;Comma separated values (*.csv)")
+            save_filename, save_filename_ext = QFileDialog.getSaveFileName(self,"Save File",f"{self.path}/{self.fname}_analysis","Excel file (*.xlsx);;Comma separated values (*.csv)")
             if save_filename != "":
                 if save_filename_ext == "Comma separated values (*.csv)":
                     save_filename, save_filename_ext = os.path.splitext(save_filename)
