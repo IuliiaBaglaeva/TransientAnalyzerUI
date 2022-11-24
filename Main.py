@@ -116,7 +116,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.AboutWindow = QMessageBox()
         self.AboutWindow.setWindowTitle("About")
         self.AboutWindow.setText("<b>TransientAnalyzer - Gaussian process regression-based analysis of noisy transient signals.</b>")
-        self.AboutWindow.setInformativeText("Version 1.1. <br>"
+        self.AboutWindow.setInformativeText("Version 1.1.1 <br>"
                                 "Created by Iuliia&nbsp;Baglaeva (<a href='"'mailto:iuliia.baglaeva@savba.sk'"'>iuliia.baglaeva@savba.sk</a>), Bogdan&nbsp;Iaparov, Ivan&nbsp;Zahradník and Alexandra&nbsp;Zahradníková. <br>"
                                 "Biomedical Research Center of the Slovak Academy of Sciences. "
                                 "© 2022 <br>"
