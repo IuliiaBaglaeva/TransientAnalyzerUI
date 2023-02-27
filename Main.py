@@ -21,7 +21,7 @@ from copy import deepcopy
 
 class WorkerSignals(QObject):
     progress = pyqtSignal(int)
-    finished = pyqtSignal()
+    finished = pyqtSignal(int)
 
 class Worker(QRunnable):
 
@@ -29,15 +29,24 @@ class Worker(QRunnable):
         super(Worker, self).__init__()
 
         # Store constructor arguments (re-used for processing)
+        self.computation_must_finish = False
         self.Analyzer = analyzer
         self.n_transients = self.Analyzer.t0s_est.shape[0]
         self.Signals = WorkerSignals()
 
     def run(self):
+        return_code = 1
         for i in range(self.n_transients):
-            self.Analyzer._FitSingleTransient(i)
-            self.Signals.progress.emit(int((i + 1) * 100 / self.n_transients))
-        self.Signals.finished.emit()
+            if not self.computation_must_finish:
+                self.Analyzer._FitSingleTransient(i)
+                self.Signals.progress.emit(int((i + 1) * 100 / self.n_transients))
+            else:
+                return_code = -1
+                break
+        self.Signals.finished.emit(return_code)
+
+    def ComputationMustFinish(self):
+        self.computation_must_finish = True
 
 class pandasModel(QAbstractTableModel):
 
@@ -157,7 +166,11 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.Cancel)
             resp = msg_box.exec()
             if resp == QMessageBox.Yes:
-                self.close()
+                if self.computation_goes:
+                    self.worker.ComputationMustFinish()
+                    event.ignore()
+                else:
+                    self.close()
             else:
                 event.ignore()
         else:
@@ -352,7 +365,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     def ShowProgress(self,value):
         self.progressBar.setValue(value)
 
-    def ComputationisFinished(self):
+    def ComputationisFinished(self,return_code):
+        if return_code == -1:
+            qApp.quit()
+            return
         df = self.Analyzer.GetParametersTable(self.xlabel,self.ylabel)
         parameters = pandasModel(df)
         self.ncol_data = parameters.columnCount()
@@ -408,10 +424,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         if not self.computation_goes:
             self.progressBar.setValue(0)
             self.Log.setText("Parameters estimation is in progress.")
-            worker = Worker(self.Analyzer)  # Any other args, kwargs are passed to the run function
-            worker.Signals.progress.connect(self.ShowProgress)
-            worker.Signals.finished.connect(self.ComputationisFinished)
-            self.threadpool.start(worker)
+            self.worker = Worker(self.Analyzer)  # Any other args, kwargs are passed to the run function
+            self.worker.Signals.progress.connect(self.ShowProgress)
+            self.worker.Signals.finished.connect(self.ComputationisFinished)
+            self.threadpool.start(self.worker)
             self.computation_goes = True
             self._ClearApproximatedTransients()
 
