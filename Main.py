@@ -116,7 +116,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.AboutWindow = QMessageBox()
         self.AboutWindow.setWindowTitle("About")
         self.AboutWindow.setText("<b>TransientAnalyzer - Gaussian process regression-based analysis of noisy transient signals.</b>")
-        self.AboutWindow.setInformativeText("Version 1.1.1 <br>"
+        self.AboutWindow.setInformativeText("Version 1.1.2 <br>"
                                 "Created by Iuliia&nbsp;Baglaeva (<a href='"'mailto:iuliia.baglaeva@savba.sk'"'>iuliia.baglaeva@savba.sk</a>), Bogdan&nbsp;Iaparov, Ivan&nbsp;Zahradník and Alexandra&nbsp;Zahradníková. <br>"
                                 "Biomedical Research Center of the Slovak Academy of Sciences. "
                                 "© 2022 <br>"
@@ -136,6 +136,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         spinboxes.extend(self.findChildren(QSpinBox))
         for s in spinboxes:
             s.valueChanged.connect(self.FreezeButton)
+        self.KernelcomboBox.currentTextChanged.connect(self.FreezeButton)
         self.StartTimeBox.focused.connect(self.SetTimeToChange)
         self.EndTimeBox.focused.connect(self.SetTimeToChange)
         self.computation_goes = False
@@ -334,7 +335,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                                               start_gradient = self.GradientBox.value(),
                                               quantile1 = self.Q1Box.value() * 0.01,
                                               quantile2 = self.Q2Box.value() * 0.01,
-                                              t_stim = stim
+                                              t_stim = stim,
+                                              kernel=self.KernelcomboBox.currentText()
                                               )
             if self.DetrendBox.isChecked():
                 sig = deepcopy(self.Sig)
@@ -367,6 +369,12 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.ShowTable()
         self.Log.setText("Parameters estimation is completed.")
 
+    def GetAnalyzerParameters(self):
+        data_out = {'Parameter': ["Boxcar 1","Boxcar 2","Prominence","Shift","Beta","Start Gradient","Q1", "Q2","Kernel"],
+                'Value': [self.Analyzer._window_size, self.Analyzer._window_size2, self.Analyzer._prominence,self.Analyzer._shift,
+                          self.Analyzer._beta, self.Analyzer._start_gradient, self.Analyzer.quantile1,self.Analyzer.quantile2,self.Analyzer._kernel.__class__.__name__]}
+        return pd.DataFrame.from_dict(data_out)
+
     def SaveData(self):
         if not self.computation_goes:
             save_filename, save_filename_ext = QFileDialog.getSaveFileName(self,"Save File",f"{self.path}/{self.fname}_analysis","Excel file (*.xlsx);;Comma separated values (*.csv)")
@@ -377,12 +385,16 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                     df.to_csv(save_filename + "_parameters.csv")
                     df = self.Analyzer.GetTransientsTable(self.xlabel,self.ylabel)
                     df.to_csv(save_filename + "_transients.csv")
+                    df = self.GetAnalyzerParameters()
+                    df.to_csv(save_filename + "_analysis_parameters.csv")
                 else:
                     writer = pd.ExcelWriter(save_filename, engine='xlsxwriter')
                     df = self.Analyzer.GetParametersTable(self.xlabel,self.ylabel)
                     df.to_excel(writer,sheet_name="Parameters")
                     df = self.Analyzer.GetTransientsTable(self.xlabel,self.ylabel)
                     df.to_excel(writer,sheet_name="Transients")
+                    df = self.GetAnalyzerParameters()
+                    df.to_excel(writer,sheet_name="Analysis Parameters")
                     try:
                         writer.close()
                     except Exception as e:
