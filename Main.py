@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 #pyinstaller packages
 
+from itertools import filterfalse
 import tensorflow_probability.python.experimental
 import keras
 
@@ -339,6 +340,12 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             stim = None
             if self.stimulus is not None:
                 stim = self.stimulus[(self.stimulus >= mint) & (self.stimulus <= maxt)]
+            if self.SignComboBox.currentText() == "Automatic":
+                isFall = None
+            elif self.SignComboBox.currentText() == "Positive":
+                isFall = False
+            else:
+                isFall = True
             self.Analyzer = TransientAnalyzer.TransientAnalyzer(t,sig,
                                               window_size = self.WindowBox.value(),
                                               prominence = self.ProminenceBox.value(),
@@ -351,7 +358,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                                               quantile1 = self.Q1Box.value() * 0.01,
                                               quantile2 = self.Q2Box.value() * 0.01,
                                               t_stim = stim,
-                                              kernel=self.KernelcomboBox.currentText()
+                                              kernel=self.KernelcomboBox.currentText(),
+                                              is_fall = isFall
                                               )
             if self.DetrendBox.isChecked():
                 sig = deepcopy(self.Sig)
