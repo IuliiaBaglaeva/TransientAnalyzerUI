@@ -114,6 +114,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.PlotWidget.getAxis('bottom').setPen(color ='black', width = 2)
         self.PlotWidget.getAxis('left').setPen(color ='black', width = 2)
         self.SetPlotLabels()
+        self.setMouseTracking(True)
+        self.PlotWidget.scene().sigMouseMoved.connect(self.MouseMovedonPlot)
         #Buttons
         self.DetectButton.clicked.connect(self.DetectSignals)
         self.StartButton.clicked.connect(self.WorkWithTransients)
@@ -312,8 +314,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.PlotWidget.clear()
         pen = pg.mkPen(color = (105,105,105), width = 2)
         self.PlotWidget.plot(t, ca, pen=pen)
-        self.setMouseTracking(True)
-        self.PlotWidget.scene().sigMouseMoved.connect(self.MouseMovedonPlot)
         if change_range:
             self.PlotWidget.autoRange()
 
@@ -395,11 +395,16 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.ShowTable()
         self.Log.setText("Parameters estimation is completed.")
 
-    def GetAnalyzerParameters(self):
-        data_out = {'Parameter': ["Boxcar 1","Boxcar 2","Prominence","Shift","Alpha multiplier","Beta","Start Gradient","Q1", "Q2","Kernel"],
+    def _GetAnalyzerParameters(self, SNR):
+        data_out = {'Parameter': ["Boxcar 1","Boxcar 2","Prominence","Shift","Alpha multiplier","Beta","Start Gradient","Q1", "Q2","Kernel", "SNR"],
                 'Value': [self.Analyzer._window_size, self.Analyzer._window_size2, self.Analyzer._prominence,self.Analyzer._shift, self.Analyzer._alpha_mult,
-                          self.Analyzer._beta, self.Analyzer._start_gradient, self.Analyzer.quantile1,self.Analyzer.quantile2,self.Analyzer._kernel.__class__.__name__]}
+                          self.Analyzer._beta, self.Analyzer._start_gradient, self.Analyzer.quantile1,self.Analyzer.quantile2,self.Analyzer._kernel.__class__.__name__, SNR]}
         return pd.DataFrame.from_dict(data_out)
+
+    def _GetSNR(self, pars, tr):     
+        sigma = np.std(tr[:,1] - tr[:,2]) # True signal - GPR approximation
+        A = np.mean(pars[:,1]) # Amplitude transients
+        return np.abs(A / (3 * sigma))
 
     def SaveData(self):
         if not self.computation_goes:
@@ -407,20 +412,20 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             if save_filename != "":
                 if save_filename_ext == "Comma separated values (*.csv)":
                     save_filename, save_filename_ext = os.path.splitext(save_filename)
-                    df = self.Analyzer.GetParametersTable(self.xlabel,self.ylabel)
-                    df.to_csv(save_filename + "_parameters.csv")
-                    df = self.Analyzer.GetTransientsTable(self.xlabel,self.ylabel)
-                    df.to_csv(save_filename + "_transients.csv")
-                    df = self.GetAnalyzerParameters()
+                    df_par = self.Analyzer.GetParametersTable(self.xlabel,self.ylabel)
+                    df_par.to_csv(save_filename + "_parameters.csv")
+                    df_tr = self.Analyzer.GetTransientsTable(self.xlabel,self.ylabel)
+                    df_tr.to_csv(save_filename + "_transients.csv")
+                    df = self._GetAnalyzerParameters(self._GetSNR(df_par.to_numpy(), df_tr.to_numpy()))
                     df.to_csv(save_filename + "_analysis_parameters.csv")
                 else:
                     try:
                         writer = pd.ExcelWriter(save_filename, engine='xlsxwriter')
-                        df = self.Analyzer.GetParametersTable(self.xlabel,self.ylabel)
-                        df.to_excel(writer,sheet_name="Parameters")
-                        df = self.Analyzer.GetTransientsTable(self.xlabel,self.ylabel)
-                        df.to_excel(writer,sheet_name="Transients")
-                        df = self.GetAnalyzerParameters()
+                        df_par = self.Analyzer.GetParametersTable(self.xlabel,self.ylabel)
+                        df_par.to_excel(writer,sheet_name="Parameters")
+                        df_tr = self.Analyzer.GetTransientsTable(self.xlabel,self.ylabel)
+                        df_tr.to_excel(writer,sheet_name="Transients")
+                        df = self._GetAnalyzerParameters(self._GetSNR(df_par.to_numpy(), df_tr.to_numpy()))
                         df.to_excel(writer,sheet_name="Analysis Parameters")
                         writer.close()
                         self.data_issaved = True
